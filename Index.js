@@ -1,207 +1,227 @@
 /**
- * AURA JAVASCRIPT ENGINE 
- * Logic-first architecture for the ADHD Focus Engine.
+ * AURA FOCUS ENGINE - PURE JAVASCRIPT
+ * ADHD Executive Function Support
+ * User ID: 17040095986901884715
  */
 
-const Aura = {
-    // 1. STATE MANAGEMENT
-    state: {
-        sessions: JSON.parse(localStorage.getItem('aura_data')) || [],
+(function() {
+    // --- Configuration ---
+    const CONFIG = {
+        USER_ID: "17040095986901884715",
+        GEMINI_KEY: "", // Environment provides key
+        AURA_API_KEY: "Aura_API_KEY",
+        AURA_ENDPOINT: "https://auraapi.com/v1",
+        STORAGE_KEY: "aura_js_v7"
+    };
+
+    const State = {
+        sessions: [],
         activeId: null,
         isThinking: false,
-        uid: "17040095986901884715"
-    },
 
-    // 2. INITIALIZATION
-    init() {
-        if (this.state.sessions.length === 0) {
-            this.createSession("New Deep Work");
-        } else {
-            this.state.activeId = this.state.sessions[0].id;
-        }
-        this.render();
-        this.startPulse();
-    },
+        init() {
+            const saved = localStorage.getItem(`${CONFIG.STORAGE_KEY}_${CONFIG.USER_ID}`);
+            if (saved) {
+                try {
+                    this.sessions = JSON.parse(saved);
+                    this.activeId = this.sessions[0]?.id || this.createNewSession().id;
+                } catch (e) { this.createNewSession(); }
+            } else {
+                this.createNewSession();
+            }
+        },
 
-    // 3. CORE ACTIONS
-    save() {
-        localStorage.setItem('aura_data', JSON.stringify(this.state.sessions));
-    },
+        save() {
+            localStorage.setItem(`${CONFIG.STORAGE_KEY}_${CONFIG.USER_ID}`, JSON.stringify(this.sessions));
+        },
 
-    createSession(title) {
-        const id = Date.now().toString();
-        const session = {
-            id,
-            title: title || "New Session",
-            goal: "",
-            minutes: 0,
-            history: [{ role: 'aura', text: "Systems online. What are we focusing on right now?" }]
-        };
-        this.state.sessions.unshift(session);
-        this.state.activeId = id;
-        this.save();
-        this.render();
-    },
-
-    async sendMessage() {
-        const input = document.getElementById('aura-input');
-        if (!input) return;
-
-        const text = input.value.trim();
-        if (!text || this.state.isThinking) return;
-
-        const session = this.state.sessions.find(s => s.id === this.state.activeId);
-        if (!session) return;
-
-        // Push user message
-        session.history.push({ role: 'user', text });
-        
-        input.value = '';
-        this.state.isThinking = true;
-        this.renderChat();
-
-        try {
-            // NOTE: Replace '/aura-chat' with your actual endpoint
-            const response = await fetch('/aura-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, apiKey: "Auraapi" })
-            });
-
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const data = await response.json();
-            session.history.push({ role: 'aura', text: data.reply || "Connection lost." });
-        } catch (e) {
-            session.history.push({ 
-                role: 'aura', 
-                text: "Error connecting to server. Ensure your backend is running at /aura-chat." 
-            });
-        } finally {
-            this.state.isThinking = false;
+        createNewSession() {
+            const id = Date.now().toString();
+            const session = {
+                id,
+                task: "",
+                messages: [],
+                minutes: 0
+            };
+            this.sessions.unshift(session);
+            this.activeId = id;
             this.save();
-            this.renderChat();
+            return session;
+        },
+
+        getActive() {
+            return this.sessions.find(s => s.id === this.activeId);
         }
-    },
+    };
 
-    // 4. UI COMPONENTS
-    render() {
-        const app = document.getElementById('aura-app');
-        const activeSession = this.state.sessions.find(s => s.id === this.state.activeId);
-        if (!app || !activeSession) return;
+    // --- Dynamic CSS Injection ---
+    const injectStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap');
+            :root { --bg: #030407; --panel: #0d1117; --accent: #818cf8; --text: #f1f5f9; --border: rgba(255,255,255,0.08); }
+            body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; }
+            .aura-root { display: flex; height: 100vh; width: 100vw; }
+            .aura-sidebar { width: 260px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+            .aura-main { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; }
+            .aura-header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
+            .aura-chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+            .aura-input-area { padding: 20px; border-top: 1px solid var(--border); }
+            .aura-wrapper { max-width: 800px; margin: 0 auto; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 4px; display: flex; }
+            .aura-field { background: transparent; border: none; color: white; flex: 1; padding: 10px; outline: none; font-size: 14px; }
+            .aura-msg { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+            .msg-user { align-self: flex-end; background: #fff; color: #000; }
+            .msg-bot { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+            .aura-btn { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+            .session-tab { padding: 12px 20px; font-size: 13px; cursor: pointer; opacity: 0.5; transition: 0.2s; }
+            .session-tab.active { opacity: 1; color: var(--accent); background: rgba(129,140,248,0.05); }
+            .mono { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.4; }
+        `;
+        document.head.appendChild(style);
+    };
 
-        app.innerHTML = `
-            <div style="width: 280px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column;">
-                <div style="padding: 24px; border-bottom: 1px solid var(--border)">
-                    <h2 style="margin: 0; color: var(--accent); font-size: 1.2rem;">Aura Engine</h2>
-                    <code style="font-size: 10px; opacity: 0.5;">ID: ${this.state.uid}</code>
-                    <button onclick="Aura.createSession()" style="width: 100%; margin-top: 20px; padding: 10px; background: var(--glass); border: 1px solid var(--border); color: white; border-radius: 8px; cursor: pointer; transition: 0.2s hover;">+ New Focus</button>
+    // --- Build UI Components ---
+    const build = () => {
+        const active = State.getActive();
+        const root = document.getElementById('aura-app') || document.createElement('div');
+        root.id = 'aura-app';
+        root.className = 'aura-root';
+        root.innerHTML = `
+            <div class="aura-sidebar">
+                <div style="padding: 20px; border-bottom: 1px solid var(--border)">
+                    <div style="font-weight:600; font-size:16px;">Aura Engine</div>
+                    <div class="mono">UID: ${CONFIG.USER_ID}</div>
+                    <button id="new-btn" class="aura-btn" style="width:100%; margin-top:16px;">+ New Focus</button>
                 </div>
-                <div id="session-list" style="flex: 1; overflow-y: auto; padding: 10px;">
-                    ${this.renderSessionList()}
-                </div>
+                <div id="side-list" style="flex:1; overflow-y:auto"></div>
             </div>
-
-            <div style="flex: 1; display: flex; flex-direction: column; position: relative;">
-                <div style="height: 64px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; justify-content: space-between;">
-                    <input id="goal-input" onchange="Aura.updateGoal(this.value)" value="${activeSession.goal}" placeholder="What is the objective?" style="background:transparent; border:none; color:white; font-size: 15px; width: 60%; outline:none;">
-                    <div id="timer-display" style="font-family: 'JetBrains Mono'; background: var(--glass); padding: 6px 14px; border-radius: 20px; font-size: 12px; color: var(--accent);">
-                        ${activeSession.minutes}m focus
+            <div class="aura-main">
+                <div class="aura-header">
+                    <input id="task-name" type="text" placeholder="Current Task..." value="${active.task}" style="background:transparent; border:none; color:white; font-weight:600; outline:none; width:50%;">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button id="aura-intel" class="aura-btn" style="background:transparent; border:1px solid var(--accent); color:var(--accent)">Aura Intel</button>
+                        <div class="mono" id="timer">${active.minutes}M</div>
                     </div>
                 </div>
-
-                <div id="chat-window" style="flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 20px;">
-                    </div>
-
-                <div style="padding: 30px; background: linear-gradient(to top, var(--bg) 60%, transparent);">
-                    <div style="max-width: 800px; margin: 0 auto; background: var(--glass); border: 1px solid var(--border); border-radius: 16px; padding: 8px; display: flex; backdrop-filter: blur(10px);">
-                        <input id="aura-input" type="text" placeholder="Where is the friction?" style="flex: 1; background: transparent; border: none; color: white; padding: 12px 18px; outline: none; font-size: 15px;">
-                        <button onclick="Aura.sendMessage()" style="background: var(--accent); color: white; border: none; padding: 10px 24px; border-radius: 12px; cursor: pointer; font-weight: 600;">Ask</button>
+                <div class="aura-chat" id="chat-box">
+                    <div id="intel-zone"></div>
+                    <div id="msg-anchor" style="display:flex; flex-direction:column; gap:16px;"></div>
+                </div>
+                <div class="aura-input-area">
+                    <div class="aura-wrapper">
+                        <input id="chat-in" class="aura-field" placeholder="Break this down...">
+                        <button id="send-btn" class="aura-btn">Send</button>
                     </div>
                 </div>
             </div>
         `;
-        this.renderChat();
-        this.setupInputs();
-    },
+        document.body.appendChild(root);
+        attach();
+        update();
+    };
 
-    renderSessionList() {
-        return this.state.sessions.map(s => `
-            <div onclick="Aura.switchSession('${s.id}')" style="padding: 12px 16px; margin-bottom: 4px; border-radius: 10px; cursor: pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; ${s.id === this.state.activeId ? 'background: rgba(99, 102, 241, 0.12); color: var(--accent);' : 'opacity: 0.6;'}">
-                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 180px;">${s.title}</span>
-                <span onclick="event.stopPropagation(); Aura.deleteSession('${s.id}')" style="opacity: 0.3; padding: 4px; hover: opacity: 1;">✕</span>
+    const update = () => {
+        const side = document.getElementById('side-list');
+        side.innerHTML = State.sessions.map(s => `
+            <div class="session-tab ${s.id === State.activeId ? 'active' : ''}" data-id="${s.id}">
+                ${s.task || "New Session"}
             </div>
         `).join('');
-    },
 
-    renderChat() {
-        const win = document.getElementById('chat-window');
-        if (!win) return;
-        const session = this.state.sessions.find(s => s.id === this.state.activeId);
-        
-        win.innerHTML = session.history.map(m => `
-            <div style="align-self: ${m.role === 'user' ? 'flex-end' : 'flex-start'}; 
-                        max-width: 80%; padding: 16px 20px; border-radius: 18px; font-size: 14px; line-height: 1.6;
-                        ${m.role === 'user' ? 'background: white; color: black; border-bottom-right-radius: 4px;' : 'background: var(--glass); border: 1px solid var(--border); border-bottom-left-radius: 4px;'}">
-                ${m.text.replace(/\n/g, '<br>')}
-            </div>
+        const anchor = document.getElementById('msg-anchor');
+        const active = State.getActive();
+        anchor.innerHTML = active.messages.map(m => `
+            <div class="aura-msg ${m.role === 'user' ? 'msg-user' : 'msg-bot'}">${m.text.replace(/\n/g, '<br>')}</div>
         `).join('');
-        
-        if (this.state.isThinking) {
-            win.innerHTML += `<div style="opacity:0.5; font-size: 12px; padding-left: 10px; animation: pulse 1.5s infinite;">Aura is thinking...</div>`;
-        }
-        
-        win.scrollTop = win.scrollHeight;
-    },
+        const chat = document.getElementById('chat-box');
+        chat.scrollTop = chat.scrollHeight;
+    };
 
-    // 5. HELPER LOGIC
-    setupInputs() {
-        const input = document.getElementById('aura-input');
-        if (input) {
-            input.addEventListener('keypress', (e) => { 
-                if(e.key === 'Enter') this.sendMessage(); 
+    // --- Interaction Logic ---
+    const attach = () => {
+        document.getElementById('new-btn').onclick = () => { State.createNewSession(); build(); };
+        document.getElementById('task-name').onchange = (e) => {
+            const active = State.getActive();
+            active.task = e.target.value;
+            State.save();
+            update();
+        };
+        document.querySelectorAll('.session-tab').forEach(el => {
+            el.onclick = () => { State.activeId = el.dataset.id; build(); };
+        });
+        document.getElementById('send-btn').onclick = () => handleChat();
+        document.getElementById('chat-in').onkeydown = (e) => { if (e.key === 'Enter') handleChat(); };
+        document.getElementById('aura-intel').onclick = () => handleIntel();
+    };
+
+    const handleIntel = async () => {
+        const active = State.getActive();
+        if (!active.task) return;
+        const zone = document.getElementById('intel-zone');
+        zone.innerHTML = `<div class="mono" style="padding:10px;">ANALYZING...</div>`;
+
+        try {
+            const res = await fetch(`${CONFIG.AURA_ENDPOINT}/analysis`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.AURA_API_KEY}` },
+                body: JSON.stringify({ task: active.task, userId: CONFIG.USER_ID })
             });
+            const data = await res.json();
+            zone.innerHTML = `<div style="padding:15px; border:1px solid var(--accent); border-radius:8px; margin-bottom:16px;">${data.analysis || "Micro-task identified: Break inertia now."}</div>`;
+        } catch (e) {
+            zone.innerHTML = `<div class="mono" style="padding:10px;">AURA INTELLIGENCE READY.</div>`;
         }
-    },
+    };
 
-    updateGoal(val) {
-        const session = this.state.sessions.find(s => s.id === this.state.activeId);
-        if (session) {
-            session.goal = val;
-            session.title = val.substring(0, 25) || "Deep Work";
-            this.save();
-            this.render();
+    const handleChat = async () => {
+        const input = document.getElementById('chat-in');
+        const text = input.value.trim();
+        if (!text || State.isThinking) return;
+
+        const active = State.getActive();
+        active.messages.push({ role: 'user', text });
+        input.value = '';
+        update();
+
+        State.isThinking = true;
+        const btn = document.getElementById('send-btn');
+        btn.innerText = '...';
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: active.messages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
+                    systemInstruction: { parts: [{ text: `Aura Focus Coach. User UID: ${CONFIG.USER_ID}. ADHD Rules: 1. Use bullets. 2. Be concise. 3. Suggest a 2-minute win.` }] }
+                })
+            });
+            const data = await response.json();
+            active.messages.push({ role: 'bot', text: data.candidates?.[0]?.content?.parts?.[0]?.text || "Refocusing error." });
+            State.save();
+            update();
+        } catch (e) {
+            active.messages.push({ role: 'bot', text: "Signal lost." });
+            update();
+        } finally {
+            State.isThinking = false;
+            btn.innerText = 'Send';
         }
-    },
+    };
 
-    switchSession(id) {
-        this.state.activeId = id;
-        this.render();
-    },
-
-    deleteSession(id) {
-        this.state.sessions = this.state.sessions.filter(s => s.id !== id);
-        if (this.state.activeId === id) {
-            this.state.activeId = this.state.sessions[0]?.id || null;
-        }
-        if (!this.state.activeId) this.createSession();
-        this.save();
-        this.render();
-    },
-
-    startPulse() {
-        // Updates the "Focus Time" every minute
+    // --- Initialize ---
+    window.onload = () => {
+        State.init();
+        injectStyles();
+        build();
         setInterval(() => {
-            const session = this.state.sessions.find(s => s.id === this.state.activeId);
-            if (session) {
-                session.minutes++;
-                this.save();
-                const timer = document.getElementById('timer-display');
-                if (timer) timer.innerText = `${session.minutes}m focus`;
+            const active = State.getActive();
+            if (active) {
+                active.minutes++;
+                State.save();
+                const timer = document.getElementById('timer');
+                if (timer) timer.innerText = `${active.minutes}M`;
             }
         }, 60000);
-    }
-};
-
-// Start the engine
-window.onload = () => Aura.init();
+    };
+})();
