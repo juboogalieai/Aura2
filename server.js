@@ -1,47 +1,39 @@
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
 const app = express();
+const port = process.env.PORT || 10000;
 
-// Middleware
-app.use(cors());
 app.use(express.json());
 
-// Serve the UI
+// 1. Serve static files from the current directory
+app.use(express.static(__dirname));
+
+// 2. Aura Chat Endpoint
+app.post('/aura-chat', (req, res) => {
+    const { message } = req.body;
+    // Simple response logic for the Aura Engine
+    res.json({ reply: `Aura received: ${message}. Systems standing by.` });
+});
+
+// 3. Robust Root Route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(__dirname, 'index.html');
+    
+    // Check if the file exists before trying to send it to prevent ENOENT crash
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            console.error("Missing index.html! Use the UI code provided to create it.");
+            res.status(404).send(`
+                <div style="font-family:sans-serif; padding:40px; text-align:center;">
+                    <h1>Server is LIVE 🚀</h1>
+                    <p>But <b>index.html</b> is missing from your GitHub repo.</p>
+                    <p>Paste your UI code into a new file named <code>index.html</code> to finish the setup.</p>
+                </div>
+            `);
+        }
+    });
 });
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.Aura_API_KEY || "");
-
-// Aura's Persona
-const SYSTEM_PROMPT = "You are Aura, a friendly ADHD Focus Assistant. Use bullet points and keep it concise.";
-
-// Chat Endpoint
-app.post('/aura-chat', async (req, res) => {
-    const { message, apiKey } = req.body;
-
-    if (apiKey !== "Auraapi") {
-        return res.status(403).json({ error: "Invalid Key" });
-    }
-
-    try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: SYSTEM_PROMPT 
-        });
-
-        const result = await model.generateContent(message);
-        res.json({ reply: result.response.text() });
-    } catch (error) {
-        res.status(500).json({ error: "Aura is resting." });
-    }
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
