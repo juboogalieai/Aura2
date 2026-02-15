@@ -1,7 +1,7 @@
 {
-  "name": "aura-api",
+  "name": "aura2",
   "version": "1.0.0",
-  "description": "API for Aura AI with custom key support",
+  "description": "ADHD Focus Engine Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
