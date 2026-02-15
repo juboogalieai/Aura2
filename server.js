@@ -15,7 +15,7 @@ app.use(express.static(path.join(__dirname)));
 
 // 2. Initialize Gemini AI
 // Ensure you have "Aura_API_KEY" set in your Render Environment Variables
-const genAI = new GoogleGenerativeAI(process.env.Aura_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.Aura_API_KEY || "auraapi");
 const SYSTEM_PROMPT = "You are Aura, a friendly ADHD Focus Assistant. Use bullet points and keep it concise.";
 
 // 3. Aura Chat Endpoint
@@ -42,9 +42,9 @@ app.post('/aura-chat', async (req, res) => {
 });
 
 // 4. THE FIX: Proper Home Route
-// This explicitly sends index.html when someone visits your URL
+// This explicitly sends index.js when someone visits your URL
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.js'));
 });
 
 // Start Server
