@@ -36,7 +36,7 @@ app.post('/aura-chat', async (req, res) => {
 
 // Serve index.html as the main page
 app.get('*', (req, res) => {
-    res.sendFile(path.join(main, 'index.html'));
+    res.sendFile(path.join(main, 'index.js'));
 });
 
 app.listen(port, "0.0.0.0", () => {
