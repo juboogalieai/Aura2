@@ -2,7 +2,7 @@
   "name": "aura2",
   "version": "1.0.0",
   "description": "ADHD Focus Engine Server",
-  "main": "index.html",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
