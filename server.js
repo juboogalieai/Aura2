@@ -34,8 +34,7 @@ app.post('/aura-chat', async (req, res) => {
 });
 
 // The FIX: Use path.resolve to ensure Render finds the file
-app.get('/', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'index.html'));
+app.get('/'index.html'));
 });
 
 const PORT = process.env.PORT || 10000;
