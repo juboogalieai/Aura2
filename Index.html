@@ -50,6 +50,23 @@
         }
         @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
 
+        /* Enhanced Status Animations */
+        .pulse-amber {
+            animation: pulse-amber-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-amber-glow {
+            0%, 100% { background-color: #fbbf24; box-shadow: 0 0 5px #fbbf24; opacity: 1; }
+            50% { background-color: #d97706; box-shadow: 0 0 15px #fbbf24; opacity: 0.5; }
+        }
+
+        .pulse-indigo {
+            animation: pulse-indigo-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-indigo-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(129, 140, 248, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(129, 140, 248, 0.8); }
+        }
+
         .focus-gradient {
             background: linear-gradient(180deg, rgba(129, 140, 248, 0.05) 0%, rgba(3, 4, 7, 0) 100%);
         }
@@ -69,6 +86,11 @@
             justify-content: center;
             transition: opacity 0.5s ease;
         }
+
+        .animate-spin-slow {
+            animation: spin 3s linear infinite;
+        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="h-screen flex">
@@ -99,8 +121,14 @@
 
         <div id="flow-list" class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar"></div>
 
-        <div class="p-4 border-t border-white/5 bg-black/40 text-center">
-            <span class="text-[8px] text-white/20 uppercase tracking-[0.2em] mono font-bold">Cloud Sync Active</span>
+        <div class="p-4 border-t border-white/5 bg-black/40">
+            <div id="status-container" class="flex flex-col items-center gap-2">
+                <div class="flex items-center justify-center gap-2">
+                    <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-white/10 transition-all duration-700"></div>
+                    <span id="server-status" class="text-[8px] text-white/20 uppercase tracking-[0.2em] mono font-bold transition-all duration-500">Connecting...</span>
+                </div>
+                <div id="status-msg" class="text-[7px] text-white/10 mono uppercase tracking-tight opacity-50">Initializing Node</div>
+            </div>
         </div>
     </aside>
 
@@ -124,20 +152,27 @@
             </div>
         </header>
 
-        <section id="chat-container" class="flex-1 overflow-y-auto p-6 md:px-20 space-y-6 custom-scrollbar">
+        <section id="chat-container" class="flex-1 overflow-y-auto p-6 md:px-20 space-y-6 custom-scrollbar scroll-smooth">
             <div id="intel-display"></div>
             <div id="messages-anchor" class="space-y-6"></div>
         </section>
 
         <footer class="p-6 shrink-0">
-            <div class="max-w-4xl mx-auto flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl focus-within:border-indigo-500/40 transition-all">
-                <input id="user-input" type="text" placeholder="Break the cycle of paralysis..." class="flex-1 bg-transparent text-white px-4 py-3 focus:outline-none placeholder:text-white/20 text-sm" onkeydown="if(event.key === 'Enter') handleMessage()">
-                <button id="send-btn" onclick="handleMessage()" class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+            <div class="max-w-4xl mx-auto flex flex-col gap-3">
+                <div class="flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl focus-within:border-indigo-500/40 transition-all group">
+                    <input id="user-input" type="text" placeholder="Break the cycle of paralysis..." class="flex-1 bg-transparent text-white px-4 py-3 focus:outline-none placeholder:text-white/20 text-sm" onkeydown="if(event.key === 'Enter') handleMessage()">
+                    <button id="send-btn" onclick="handleMessage()" class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div id="retry-hint" class="hidden text-center message-fade-in">
+                    <button onclick="handleMessage(true)" class="px-6 py-2.5 bg-indigo-600/10 border border-indigo-500/30 rounded-full text-[10px] text-indigo-400 hover:bg-indigo-600/20 transition-all mono uppercase tracking-[0.2em] font-bold shadow-lg shadow-indigo-500/5">
+                        <i class="fas fa-satellite-dish mr-2 animate-pulse"></i> Re-Sync Signal
+                    </button>
+                </div>
             </div>
             <div class="mt-3 text-center">
-                <p class="text-[9px] text-white/10 mono uppercase tracking-tighter">Secure Cloud Connection // Bypass Active</p>
+                <p class="text-[9px] text-white/10 mono uppercase tracking-widest">Neural Encryption Active // Aura v2.4.1</p>
             </div>
         </footer>
     </main>
@@ -147,9 +182,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- CONNECTED TO YOUR RENDER BACKEND ---
         const SERVER_URL = "https://aura2.onrender.com"; 
-        
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -160,22 +193,84 @@
             sessions: [],
             activeId: null,
             user: null,
-            isThinking: false
+            isThinking: false,
+            serverAwake: false,
+            lastInput: "",
+            retryPending: false
         };
 
-        // --- Auth & Initialization ---
+        const thinkingPhrases = [
+            "Syncing neural pathways",
+            "Bypassing cognitive noise",
+            "Calibrating micro-steps",
+            "Mapping flow state",
+            "Analyzing resistance"
+        ];
+
+        // --- Auth & Initializing ---
         async function initAuth() {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
                 await signInAnonymously(auth);
             }
+            startEnhancedMonitor();
+        }
+
+        // --- Adaptive Connection Monitor ---
+        async function startEnhancedMonitor() {
+            const statusLabel = document.getElementById('server-status');
+            const statusDot = document.getElementById('status-dot');
+            const statusMsg = document.getElementById('status-msg');
+            const retryHint = document.getElementById('retry-hint');
+            
+            let monitorInterval = 2500;
+
+            const check = async () => {
+                try {
+                    const controller = new AbortController();
+                    const id = setTimeout(() => controller.abort(), 4000);
+                    const resp = await fetch(SERVER_URL, { signal: controller.signal });
+                    clearTimeout(id);
+
+                    if (resp.ok) {
+                        state.serverAwake = true;
+                        statusLabel.innerText = "Neural Sync Active";
+                        statusLabel.style.color = "#818cf8";
+                        
+                        statusDot.className = "w-2.5 h-2.5 rounded-full bg-indigo-400 pulse-indigo";
+                        statusDot.style.boxShadow = "0 0 12px rgba(129, 140, 248, 0.8)";
+                        
+                        statusMsg.innerText = "Signal Strength: 100%";
+                        statusMsg.style.opacity = "0.3";
+                        
+                        if(state.retryPending) retryHint.classList.remove('hidden');
+                        monitorInterval = 45000; // Efficient heartbeat
+                    } else {
+                        throw new Error();
+                    }
+                } catch (e) {
+                    state.serverAwake = false;
+                    statusLabel.innerText = "Waking Aura";
+                    statusLabel.style.color = "rgba(251, 191, 36, 0.7)";
+                    
+                    statusDot.className = "w-2.5 h-2.5 rounded-full pulse-amber";
+                    statusDot.style.boxShadow = "none";
+                    
+                    statusMsg.innerText = "Bypassing Server Cold-Start...";
+                    statusMsg.style.opacity = "0.8";
+                    
+                    monitorInterval = 3000; // Aggressive re-checks during boot
+                }
+                setTimeout(check, monitorInterval);
+            };
+            check();
         }
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 state.user = user;
-                document.getElementById('user-display').innerText = `ID: ${user.uid.slice(0, 12)}...`;
+                document.getElementById('user-display').innerText = `NODE: ${user.uid.slice(0, 8)}...`;
                 setupFirestoreListener();
             }
         });
@@ -197,7 +292,7 @@
                 renderAll();
                 const loader = document.getElementById('loader');
                 if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
-            }, (error) => console.error("Firestore Error:", error));
+            }, (error) => console.error("Sync Error:", error));
         }
 
         window.createNewFlow = async function() {
@@ -219,27 +314,43 @@
 
         window.switchSession = function(id) {
             state.activeId = id;
-            const intel = document.getElementById('intel-display');
-            if(intel) intel.innerHTML = '';
+            document.getElementById('intel-display').innerHTML = '';
             renderAll();
         }
 
-        // --- Chat Logic using Render Server ---
-        window.handleMessage = async function() {
+        // --- Enhanced Chat Engine Logic ---
+        window.handleMessage = async function(isRetry = false) {
             const input = document.getElementById('user-input');
-            const text = input.value.trim();
+            const text = isRetry ? state.lastInput : input.value.trim();
             const active = state.sessions.find(s => s.id === state.activeId);
+            const retryHint = document.getElementById('retry-hint');
             
             if (!text || state.isThinking || !active) return;
 
-            const newMessages = [...(active.messages || []), { role: 'user', text }];
-            input.value = '';
+            state.lastInput = text;
+            if (isRetry) {
+                state.retryPending = false;
+                retryHint.classList.add('hidden');
+            }
+
+            const currentMessages = active.messages || [];
+            const localDisplayMessages = isRetry ? [...currentMessages] : [...currentMessages, { role: 'user', text }];
+            
+            if (!isRetry) input.value = '';
             state.isThinking = true;
-            renderMessagesFor(newMessages);
+            
+            const randPhrase = thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
+            const thinkingMsg = state.serverAwake 
+                ? `${randPhrase}...` 
+                : "Engine Cold-Start: Re-routing neural connections (~50s)...";
+            
+            renderMessagesFor([...localDisplayMessages, { 
+                role: 'bot', 
+                text: `<span class="thinking-dots italic opacity-40 mono text-[11px]">${thinkingMsg}</span>` 
+            }]);
 
             try {
-                // Now calling your Render server's /chat endpoint
-                const response = await fetch(`${SERVER_URL}/chat`, {
+                const response = await fetch(`${SERVER_URL}/aura-chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -248,16 +359,28 @@
                     })
                 });
 
-                const data = await response.json();
-                const botMsg = data.reply || "I'm having trouble connecting to your focus circuits. Try again?";
+                if (!response.ok) throw new Error("Sync Failed");
 
-                const finalMessages = [...newMessages, { role: 'bot', text: botMsg }];
+                const data = await response.json();
+                state.serverAwake = true;
+                
+                const finalMessages = [...localDisplayMessages, { role: 'bot', text: data.reply }];
+                
                 const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'sessions', state.activeId);
                 await updateDoc(docRef, { messages: finalMessages, updatedAt: serverTimestamp() });
+                
+                // Focus back to input for ADHD momentum
+                input.focus();
 
             } catch (e) {
-                console.error("Server Error:", e);
-                renderMessagesFor([...newMessages, { role: 'bot', text: "Signal lost. Server may be sleeping (Free instances take 50s to wake up)." }]);
+                console.error("Aura Error:", e);
+                state.serverAwake = false;
+                state.retryPending = true;
+                
+                renderMessagesFor([...localDisplayMessages, { 
+                    role: 'bot', 
+                    text: "Signal lost. Aura is still booting or re-routing. **Wait for the status light to glow indigo, then try again.**" 
+                }]);
             } finally {
                 state.isThinking = false;
             }
@@ -267,19 +390,19 @@
             const active = state.sessions.find(s => s.id === state.activeId);
             if (!active?.task) return;
             const display = document.getElementById('intel-display');
-            display.innerHTML = `<div class="p-4 bg-indigo-600/5 border border-indigo-500/20 rounded-xl mb-6 text-xs italic text-indigo-300 thinking-dots">Aura Intel analyzing cognitive resistance</div>`;
+            display.innerHTML = `<div class="p-4 bg-indigo-600/5 border border-indigo-500/20 rounded-xl mb-6 text-[10px] mono italic text-indigo-300 thinking-dots uppercase tracking-widest">Accessing Neural Database</div>`;
             setTimeout(() => {
                 display.innerHTML = `
                     <div class="p-5 bg-indigo-600/10 border border-indigo-500/30 rounded-xl mb-6 message-fade-in shadow-xl shadow-indigo-600/5">
                         <div class="flex items-center justify-between mb-3">
-                            <div class="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em]">✨ Neural Intel</div>
+                            <div class="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] mono">✨ Aura Intel // 01</div>
                             <button onclick="this.closest('.message-fade-in').remove()" class="text-white/20 hover:text-white"><i class="fas fa-times text-xs"></i></button>
                         </div>
                         <div class="text-sm text-indigo-100 leading-relaxed font-medium">
-                            Executive Function Check: **Lower the bar**. If you can't start ${active.task}, your first step is too big. Make it smaller.
+                            Status: **Executive Dysfunction Detected**. <br><br>Strategy: Treat ${active.task} as an experiment, not a chore. **Lower the stakes.** The first 2 minutes are the only thing that exists.
                         </div>
                     </div>`;
-            }, 1500);
+            }, 1200);
         }
 
         function renderAll() {
@@ -287,7 +410,7 @@
             const list = document.getElementById('flow-list');
             if (list) {
                 list.innerHTML = state.sessions.map(s => `
-                    <div onclick="switchSession('${s.id}')" class="group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${state.activeId === s.id ? 'bg-indigo-600/20 border-indigo-500/30 text-white' : 'hover:bg-white/5 border-transparent text-slate-500'}">
+                    <div onclick="switchSession('${s.id}')" class="group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${state.activeId === s.id ? 'bg-indigo-600/20 border-indigo-500/30 text-white shadow-lg shadow-indigo-500/5' : 'hover:bg-white/5 border-transparent text-slate-500'}">
                         <p class="truncate text-xs font-medium">${s.task || 'New Focus State'}</p>
                         <i class="fas fa-chevron-right text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
                     </div>`).join('');
@@ -305,15 +428,19 @@
             if (!container) return;
             container.innerHTML = messages.map(m => `
                 <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} message-fade-in">
-                    <div class="max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-white text-black font-semibold' : 'bg-white/5 border border-white/10 text-slate-200 shadow-sm'}">
+                    <div class="max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-white text-black font-semibold shadow-xl shadow-white/5' : 'bg-white/5 border border-white/10 text-slate-200 shadow-sm'}">
                         ${m.text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
                     </div>
                 </div>`).join('');
+            
             const chat = document.getElementById('chat-container');
-            if (chat) chat.scrollTop = chat.scrollHeight;
+            if (chat) {
+                const lastMsg = container.lastElementChild;
+                if(lastMsg) lastMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         }
 
-        // --- Timer Logic ---
+        // Background Flow Clock
         setInterval(async () => {
             if (state.user && state.activeId) {
                 const active = state.sessions.find(s => s.id === state.activeId);
