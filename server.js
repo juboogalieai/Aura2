@@ -1,53 +1,73 @@
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
-const port = process.env.PORT || 10000;
+// Render sets the PORT automatically; default to 3000 for local testing
+const port = process.env.PORT || 3000;
 
-// Middleware
+/**
+ * Aura Focus Engine Configuration
+ * Project Identity: projects/532507346921
+ * Project Number: 532507346921
+ */
+
+// SECURE: Pulls your API Key from Render's Environment Variables
+// (Key: AIzaSyBuUkTCe7yNlmB246_-bioVp4Hanxy5fcM)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 app.use(cors());
 app.use(express.json());
 
-// 1. Static Files: This ensures files in your root (like index.html) are accessible
-app.use(express.static(path.join(__dirname)));
+// Basic health check to confirm server is active
+app.get('/', (req, res) => {
+    res.send('Aura Focus Engine [532507346921] is active.');
+});
 
-// 2. Initialize Gemini AI
-// Ensure you have "Aura_API_KEY" set in your Render Environment Variables
-const genAI = new GoogleGenerativeAI(process.env.Aura_API_KEY || "auraapi");
-const SYSTEM_PROMPT = "You are Aura, a friendly ADHD Focus Assistant. Use bullet points and keep it concise.";
-
-// 3. Aura Chat Endpoint
+// The main link between your index.html and Gemini
 app.post('/aura-chat', async (req, res) => {
-    const { message, apiKey } = req.body;
-
-    // Security check for your custom UI key
-    if (apiKey !== "Auraapi") {
-        return res.status(403).json({ error: "Invalid Key" });
-    }
-
     try {
+        const { message, context } = req.body;
+
+        // Model settings specifically tuned for ADHD focus support
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: SYSTEM_PROMPT 
+            model: "gemini-2.0-flash",
+            systemInstruction: `You are Aura, an ADHD Focus Engine. 
+            Project Context: projects/532507346921.
+            
+            ADHD Support Protocol:
+            1. Keep responses under 3 sentences to prevent overwhelm.
+            2. Suggest one "micro-step" (a task taking < 1 minute).
+            3. Use bold text for the immediate physical action required.
+            4. Mirror the user's "Why" to provide emotional motivation.
+            5. Be high-energy but non-judgmental.`
         });
 
-        const result = await model.generateContent(message);
-        res.json({ reply: result.response.text() });
+        // Prompt that includes the user's current goal context
+        const prompt = `
+            [SESSION CONTEXT]
+            Current Goal: ${context.task || 'Undetermined'}
+            Purpose (Why): ${context.why || 'Undetermined'}
+            
+            [USER MESSAGE]
+            ${message}
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        res.json({ reply: text });
+
     } catch (error) {
-        console.error("Gemini Error:", error);
-        res.status(500).json({ error: "Aura's brain is fuzzy right now. Check API config." });
+        console.error('Aura Server Error:', error);
+        res.status(500).json({ 
+            error: 'Connection to Aura core failed.',
+            details: error.message 
+        });
     }
 });
 
-// 4. THE FIX: Proper Home Route
-// This explicitly sends index.js when someone visits your URL
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.js'));
-});
-
-// Start Server
-app.listen(port, "0.0.0.0", () => {
-    console.log(`Aura Server is officially live on port ${port}`);
+app.listen(port, () => {
+    console.log(`Aura Server running on port ${port} for Project 532507346921`);
 });
