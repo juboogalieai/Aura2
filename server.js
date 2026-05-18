@@ -20,12 +20,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.use(cors());
 app.use(express.json());
 
-// Automatically serve static files (CSS, client JS, images) in the same folder
-app.use(express.static(__dirname));
+// Serve static assets directly from Render's project source root directory
+app.use(express.static('/opt/render/project/src'));
 
-// Serves your index.html file when someone visits the main URL
+// CRITICAL FIX: Explicitly serve index.html directly from Render's full path location
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile('/opt/render/project/src/index.html');
 });
 
 // The main link between your index.html and Gemini
