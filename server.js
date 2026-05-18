@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
@@ -13,15 +14,18 @@ const port = process.env.PORT || 3000;
  */
 
 // SECURE: Pulls your API Key from Render's Environment Variables
-// (Key: AIzaSyBuUkTCe7yNlmB246_-bioVp4Hanxy5fcM)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Basic health check to confirm server is active
+// Automatically serve static files (CSS, client JS, images) in the same folder
+app.use(express.static(__dirname));
+
+// Serves your index.html file when someone visits the main URL
 app.get('/', (req, res) => {
-    res.send('Aura Focus Engine [532507346921] is active.');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // The main link between your index.html and Gemini
@@ -46,8 +50,8 @@ app.post('/aura-chat', async (req, res) => {
         // Prompt that includes the user's current goal context
         const prompt = `
             [SESSION CONTEXT]
-            Current Goal: ${context.task || 'Undetermined'}
-            Purpose (Why): ${context.why || 'Undetermined'}
+            Current Goal: ${context?.task || 'Undetermined'}
+            Purpose (Why): ${context?.why || 'Undetermined'}
             
             [USER MESSAGE]
             ${message}
@@ -68,6 +72,7 @@ app.post('/aura-chat', async (req, res) => {
     }
 });
 
+// Start the server
 app.listen(port, () => {
     console.log(`Aura Server running on port ${port} for Project 532507346921`);
 });
