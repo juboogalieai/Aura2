@@ -172,27 +172,20 @@
                 </div>
             </div>
             <div class="mt-3 text-center">
-                <p class="text-[9px] text-white/10 mono uppercase tracking-widest">Neural Encryption Active // Aura v2.4.1</p>
+                <p class="text-[9px] text-white/10 mono uppercase tracking-widest">Neural Encryption Active // Aura v2.5.0</p>
             </div>
         </footer>
     </main>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const SERVER_URL = "https://aura2.onrender.com"; 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'aura-engine-v1';
+    <script>
+        // Use a static identifier node to maintain the cyberpunk command aesthetic
+        const nodeID = localStorage.getItem('aura_node_id') || 'NODE-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        localStorage.setItem('aura_node_id', nodeID);
+        document.getElementById('user-display').innerText = `${nodeID}`;
 
         let state = {
             sessions: [],
             activeId: null,
-            user: null,
             isThinking: false,
             serverAwake: false,
             lastInput: "",
@@ -207,17 +200,7 @@
             "Analyzing resistance"
         ];
 
-        // --- Auth & Initializing ---
-        async function initAuth() {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-            startEnhancedMonitor();
-        }
-
-        // --- Adaptive Connection Monitor ---
+        // --- Connection Monitoring (ADHD visual loops) ---
         async function startEnhancedMonitor() {
             const statusLabel = document.getElementById('server-status');
             const statusDot = document.getElementById('status-dot');
@@ -230,7 +213,7 @@
                 try {
                     const controller = new AbortController();
                     const id = setTimeout(() => controller.abort(), 4000);
-                    const resp = await fetch(SERVER_URL, { signal: controller.signal });
+                    const resp = await fetch('/api/sessions', { signal: controller.signal });
                     clearTimeout(id);
 
                     if (resp.ok) {
@@ -245,7 +228,7 @@
                         statusMsg.style.opacity = "0.3";
                         
                         if(state.retryPending) retryHint.classList.remove('hidden');
-                        monitorInterval = 45000; // Efficient heartbeat
+                        monitorInterval = 30000; // Heartbeat when verified awake
                     } else {
                         throw new Error();
                     }
@@ -260,56 +243,76 @@
                     statusMsg.innerText = "Bypassing Server Cold-Start...";
                     statusMsg.style.opacity = "0.8";
                     
-                    monitorInterval = 3000; // Aggressive re-checks during boot
+                    monitorInterval = 3000; // Fast retry sequence during boot
                 }
                 setTimeout(check, monitorInterval);
             };
             check();
         }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                state.user = user;
-                document.getElementById('user-display').innerText = `NODE: ${user.uid.slice(0, 8)}...`;
-                setupFirestoreListener();
-            }
-        });
-
-        function setupFirestoreListener() {
-            if (!state.user) return;
-            const sessionsRef = collection(db, 'artifacts', appId, 'users', state.user.uid, 'sessions');
-            onSnapshot(sessionsRef, (snapshot) => {
-                const sessions = [];
-                snapshot.forEach(doc => { sessions.push({ id: doc.id, ...doc.data() }); });
-                state.sessions = sessions.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+        // --- Synchronize sessions from in-memory backend ---
+        async function fetchSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                if (!response.ok) throw new Error();
                 
-                if (!state.activeId && state.sessions.length > 0) {
-                    state.activeId = state.sessions[0].id;
-                } else if (state.sessions.length === 0) {
-                    createNewFlow();
+                state.sessions = await response.json();
+                
+                if (state.sessions.length > 0) {
+                    if (!state.activeId) {
+                        state.activeId = state.sessions[0].id;
+                    }
+                } else {
+                    await createNewFlow();
                 }
                 
                 renderAll();
                 const loader = document.getElementById('loader');
                 if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
-            }, (error) => console.error("Sync Error:", error));
+            } catch (e) {
+                console.error("Backend unreachable yet. Retrying...", e);
+                setTimeout(fetchSessions, 2000);
+            }
         }
 
         window.createNewFlow = async function() {
-            if (!state.user) return;
-            const sessionsRef = collection(db, 'artifacts', appId, 'users', state.user.uid, 'sessions');
-            const newDoc = await addDoc(sessionsRef, {
-                task: "", why: "", messages: [], minutes: 0, updatedAt: serverTimestamp()
-            });
-            state.activeId = newDoc.id;
+            try {
+                const response = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error();
+                
+                const newSession = await response.json();
+                state.activeId = newSession.id;
+                await fetchSessions();
+            } catch (e) {
+                console.error("Unable to create flow:", e);
+            }
         }
 
         window.updateActiveSession = async function() {
-            if (!state.user || !state.activeId) return;
+            if (!state.activeId) return;
             const task = document.getElementById('task-input').value;
             const why = document.getElementById('why-input').value;
-            const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'sessions', state.activeId);
-            await updateDoc(docRef, { task, why, updatedAt: serverTimestamp() });
+
+            try {
+                await fetch(`/api/sessions/${state.activeId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task, why })
+                });
+                
+                // Keep UI updated immediately
+                const session = state.sessions.find(s => s.id === state.activeId);
+                if (session) {
+                    session.task = task;
+                    session.why = why;
+                }
+                renderAll();
+            } catch (e) {
+                console.error("Failed to save changes:", e);
+            }
         }
 
         window.switchSession = function(id) {
@@ -318,7 +321,7 @@
             renderAll();
         }
 
-        // --- Enhanced Chat Engine Logic ---
+        // --- Enhanced Chat Engine Logic (Direct API Sync) ---
         window.handleMessage = async function(isRetry = false) {
             const input = document.getElementById('user-input');
             const text = isRetry ? state.lastInput : input.value.trim();
@@ -350,26 +353,24 @@
             }]);
 
             try {
-                const response = await fetch(`${SERVER_URL}/aura-chat`, {
+                const response = await fetch(`/api/sessions/${state.activeId}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: text,
-                        context: { task: active.task, why: active.why }
-                    })
+                    body: JSON.stringify({ message: text })
                 });
 
-                if (!response.ok) throw new Error("Sync Failed");
+                if (!response.ok) throw new Error("Sync Outage");
 
                 const data = await response.json();
                 state.serverAwake = true;
                 
-                const finalMessages = [...localDisplayMessages, { role: 'bot', text: data.reply }];
+                // Sync current state with updated session returned from express memory
+                const idx = state.sessions.findIndex(s => s.id === state.activeId);
+                if (idx !== -1) {
+                    state.sessions[idx] = data.session;
+                }
                 
-                const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'sessions', state.activeId);
-                await updateDoc(docRef, { messages: finalMessages, updatedAt: serverTimestamp() });
-                
-                // Focus back to input for ADHD momentum
+                renderAll();
                 input.focus();
 
             } catch (e) {
@@ -379,7 +380,7 @@
                 
                 renderMessagesFor([...localDisplayMessages, { 
                     role: 'bot', 
-                    text: "Signal lost. Aura is still booting or re-routing. **Wait for the status light to glow indigo, then try again.**" 
+                    text: "Signal lost. Aura is still booting or re-routing. **Wait for the status light in the sidebar to glow indigo, then try again.**" 
                 }]);
             } finally {
                 state.isThinking = false;
@@ -442,16 +443,28 @@
 
         // Background Flow Clock
         setInterval(async () => {
-            if (state.user && state.activeId) {
+            if (state.activeId) {
                 const active = state.sessions.find(s => s.id === state.activeId);
                 if (active && active.task) {
-                    const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'sessions', state.activeId);
-                    await updateDoc(docRef, { minutes: (active.minutes || 0) + 1 });
+                    const newMinutes = (active.minutes || 0) + 1;
+                    try {
+                        await fetch(`/api/sessions/${state.activeId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ minutes: newMinutes })
+                        });
+                        active.minutes = newMinutes;
+                        renderAll();
+                    } catch (e) {
+                        console.error("Timer failed to sync:", e);
+                    }
                 }
             }
         }, 60000);
 
-        initAuth();
+        // App Start Check
+        startEnhancedMonitor();
+        fetchSessions();
     </script>
 </body>
 </html>
